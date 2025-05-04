@@ -1,9 +1,13 @@
 import discord
 from discord.ext import tasks
 import asyncio
+from dotenv import load_dotenv
+import os
 
-# ========== CONFIGURACIÓN ========== 
-BOT_TOKEN = "token"
+# ========== CONFIGURACIÓN ==========
+load_dotenv()
+BOT_TOKEN = os.getenv("DISCORD_TOKEN")
+
 CANAL_BIENVENIDA_ID = 1368039936040898560
 CANAL_COMO_UNIRSE_ID = 1368055624558186578
 CANAL_INVITADO_ID = 1368056182736027668
@@ -22,25 +26,24 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 
 # Esta es la tarea que enviará mensajes programados
-@tasks.loop(seconds=30)  # Puedes ajustar el intervalo de tiempo (en segundos)
+@tasks.loop(seconds=30)
 async def keep_alive():
-    canal = client.get_channel(1368355275484168242)  # Usamos el canal donde solo está el bot
+    canal = client.get_channel(1368355275484168242)
     if canal:
-        mensaje = await canal.send("¡El bot sigue activo!")  # Enviar mensaje
-        await asyncio.sleep(10)  # Esperar 10 segundos antes de borrar el mensaje
-        await mensaje.delete()  # Eliminar el mensaje después de 10 segundos
+        mensaje = await canal.send("¡El bot sigue activo!")
+        await asyncio.sleep(10)
+        await mensaje.delete()
         print("👾 El bot envió un mensaje para mantenerse activo y luego lo borró.")
 
 @client.event
 async def on_ready():
     print(f'✅ Bot conectado como {client.user}')
-    keep_alive.start()  # Inicia la tarea programada al encender el bot
+    keep_alive.start()
 
 @client.event
 async def on_member_join(member):
     guild = member.guild
 
-    # Asignar rol "sin procesar"
     rol_auto = discord.utils.get(guild.roles, name="sin procesar")
     if rol_auto:
         await member.add_roles(rol_auto)
@@ -48,7 +51,6 @@ async def on_member_join(member):
     else:
         print(f'❌ No se encontró el rol "sin procesar"')
 
-    # Enviar mensaje de bienvenida solo visible para el nuevo miembro
     canal = client.get_channel(CANAL_BIENVENIDA_ID)
     if canal:
         try:
@@ -72,9 +74,7 @@ async def on_message(message):
     guild = message.guild
     autor = message.author
 
-    # Comando: ticket
     if message.channel.id == CANAL_COMO_UNIRSE_ID and content == "ticket":
-        # Borrar el mensaje de los usuarios después de 5 segundos
         await message.delete(delay=5)
 
         rol_reclutador = discord.utils.get(guild.roles, name="Reclutador")
@@ -85,37 +85,28 @@ async def on_message(message):
             rol_reclutador: discord.PermissionOverwrite(view_channel=True, send_messages=True)
         }
 
-        # Crear categoría temporal
         categoria_temporal = await guild.create_category(f"Temporal-{autor.name}")
 
-        # Crear canal de texto dentro de la categoría
         canal_ticket = await guild.create_text_channel(
             name=f"ticket-{autor.name}",
             overwrites=overwrites,
             category=categoria_temporal
         )
 
-        # Crear canal de voz dentro de la categoría
         canal_voz = await guild.create_voice_channel(
             name=f"Entrevista-{autor.name}",
             overwrites=overwrites,
             category=categoria_temporal
         )
 
-        if rol_reclutador:
-            mencion_reclutador = f"<@&{rol_reclutador.id}>"
-        else:
-            mencion_reclutador = "@Reclutador"  # Fallback por si no se encuentra
+        mencion_reclutador = f"<@&{rol_reclutador.id}>" if rol_reclutador else "@Reclutador"
 
-        # Mensaje con mención al miembro
         mensaje_ticket = f"Hola {autor.mention}, copia y pega el mensaje mostrado anteriormente de ejemplo y reemplaza con tu información del juego, luego espera a un {mencion_reclutador} para que siga con una entrevista."
 
         await canal_ticket.send(mensaje_ticket)
         print(f'🎫 Se creó el canal de ticket y el canal de voz para {autor.name} dentro de la categoría Temporal-{autor.name}')
 
-    # Comando: invitado
     elif message.channel.id == CANAL_INVITADO_ID and content == "invitado":
-        # Borrar el mensaje de los usuarios después de 5 segundos
         await message.delete(delay=5)
 
         rol_invitado = discord.utils.get(guild.roles, name="Invitados")
